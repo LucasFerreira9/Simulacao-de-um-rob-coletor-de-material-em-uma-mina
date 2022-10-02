@@ -3,6 +3,7 @@ module Main (main) where
 import Robot
 import System.Environment (getArgs)
 
+
 main :: IO ()
 main = do
           args <- getArgs
@@ -19,3 +20,5 @@ doIt [fm , fr]
            m' = run r m
         print m'
 doIt _ = putStrLn "Informe dois arquivos de entrada!"
+
+

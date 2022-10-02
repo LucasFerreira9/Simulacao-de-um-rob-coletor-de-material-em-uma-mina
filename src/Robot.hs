@@ -6,8 +6,6 @@ module Robot ( readLDM
 import Control.Monad.State
 import Parsing 
 
-
-
 type Fuel = Int
 type Point = (Int,Int)
 type Material = Int
@@ -35,8 +33,18 @@ data Element = Empty         -- espaço vazio
              deriving (Eq,Ord)
 
 
+stringIntoElement :: String -> Element
+stringIntoElement "Empty" = Empty
+stringIntoElement "Entry" = Entry
+stringIntoElement "Wall" = Wall
+stringIntoElement "Rock" = Rock
+stringIntoElement str = Material (takeResult (runParser natural str))
+      where
+          takeResult [(a,s)] = a
+                                                                                         
 pElement :: Parser Char Element
-pElement = undefined
+pElement = stringIntoElement <$> ((token "Empty") <|>  (token "Entry") <|> (token "Wall") <|>  (token "Rock") <|> greedy1 digitChar)
+                                                  
 
 type Line = [Element]
 
@@ -48,6 +56,26 @@ data Mine = Mine {
 
 instance Show Mine where
   show = undefined
+
+
+{- 1 - instancia da classe Show para o tipo Robot-}
+instance Show Robot where
+    show r = "Energy:" ++show (energy r) ++ "\\nPosition" ++ show (position r) ++ "\\nCollect:"++ show (collected r)
+
+{- 2 - instancia de Show para o tipo Element-}
+instance Show Element where
+    show elem = case elem of
+                           Empty -> show " "
+                           Entry -> show 'E'
+                           Wall -> show '%'
+                           Earth -> show '.'
+                           Rock -> show '*'
+                           Material q -> case q of
+                                                 100 -> show ':'
+                                                 150 -> show ';'
+                                                 q -> show '$'
+                           
+
 
 
 validMine :: Mine -> Bool
