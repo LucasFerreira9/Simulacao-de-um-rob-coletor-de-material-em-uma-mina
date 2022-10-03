@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
-module Parsing  ( Parser
+module Parsing  ( Parser(..)
                 , symbol
                 , token
                 , sat
@@ -12,6 +12,7 @@ module Parsing  ( Parser
                 , many
                 , many1
                 , natural
+                , natural1
                 , first
                 , greedy
                 , greedy1
@@ -96,6 +97,11 @@ natural = foldl f 0 <$> greedy digit
      where
        f ac d = ac * 10 + d
 
+natural1 :: Parser Char Int
+natural1 = foldl f 0 <$> greedy1 digit
+     where
+       f ac d = ac * 10 + d
+
 first :: Parser s a -> Parser s a
 first (Parser p)
    = Parser (\ inp -> let r = p inp
@@ -146,3 +152,4 @@ chainl pe po
      where
        j op x = \ y -> op y x
        h x fs = foldl (flip ($)) x fs
+

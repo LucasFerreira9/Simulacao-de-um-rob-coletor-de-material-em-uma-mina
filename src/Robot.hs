@@ -6,6 +6,7 @@ module Robot ( readLDM
 import Control.Monad.State
 import Parsing 
 
+
 type Fuel = Int
 type Point = (Int,Int)
 type Material = Int
@@ -32,24 +33,28 @@ data Element = Empty         -- espaço vazio
              | Material Int  -- material, Int indica quantidade.
              deriving (Eq,Ord)
 
+{-3-Parser para Element-}
 
-stringIntoElement :: String -> Element
+--Definindo funções auxialiares
+stringIntoElement :: [Char] -> Element
 stringIntoElement "Empty" = Empty
 stringIntoElement "Entry" = Entry
 stringIntoElement "Wall" = Wall
 stringIntoElement "Rock" = Rock
-stringIntoElement str = Material (takeResult (runParser natural str))
-      where
-          takeResult [(a,s)] = a
-                                                                                         
+
+intIntoElement :: Int -> Element
+intIntoElement i = Material i
+
 pElement :: Parser Char Element
-pElement = stringIntoElement <$> ((token "Empty") <|>  (token "Entry") <|> (token "Wall") <|>  (token "Rock") <|> greedy1 digitChar)
-                                                  
+pElement = pElementNum <|> pElementText
+    where 
+      pElementNum = intIntoElement <$> natural1
+      pElementText = stringIntoElement <$> ((token "Empty") <|>  (token "Entry") <|> (token "Wall") <|>  (token "Rock"))                                                
 
 type Line = [Element]
 
 data Mine = Mine {
-              lines    :: Int,
+              linhas    :: Int,
               columns  :: Int,
               elements :: [Line]
             } deriving (Eq, Ord)
@@ -77,9 +82,37 @@ instance Show Element where
                            
 
 
+{-4-Função que valida uma Mina-}
+contLineBorder :: Line -> Int
+contLineBorder [] = 0
+contLineBorder (x:xs) 
+                    |x == Entry = 1 + contLineBorder xs
+                    |otherwise = contLineBorder xs
 
+contColumBorder :: [Line] -> Int
+contColumBorder [] = 0
+contColumBorder (y:ys)
+                     |((y!!0) == Entry) && (y!!(tam-1) == Entry) = 2 + contColumBorder ys
+                     |((y!!0) == Entry) || (y!!(tam-1) == Entry) = 1 + contColumBorder ys
+                     |otherwise = contColumBorder ys
+ where
+  tam = length y
+
+verifyLengths :: Mine -> Bool
+verifyLengths m 
+              |(linhas m == (length (elements m))) && (columns m == length (elements m!!0)) = True
+              |otherwise = False
+
+verifyEntrances :: Mine -> Bool
+verifyEntrances m = (contColumBorder (elements m) + contLineBorder ((elements m)!!0) + contLineBorder ((elements m)!!((length (elements m)) - 1))) >= 2
+                
 validMine :: Mine -> Bool
-validMine = undefined
+validMine m = (verifyLengths m) && (verifyEntrances m) 
+
+
+
+
+
 
 pLine :: Parser Char Line
 pLine = undefined
