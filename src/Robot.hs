@@ -91,7 +91,9 @@ contLineBorder (x:xs)
 
 contColumBorder :: [Line] -> Int
 contColumBorder [] = 0
-contColumBorder (y:ys)
+contColumBorder [_] = 0
+contColumBorder (x:y:[]) = 0
+contColumBorder (x:y:ys)
                      |((y!!0) == Entry) && (y!!(tam-1) == Entry) = 2 + contColumBorder ys
                      |((y!!0) == Entry) || (y!!(tam-1) == Entry) = 1 + contColumBorder ys
                      |otherwise = contColumBorder ys
