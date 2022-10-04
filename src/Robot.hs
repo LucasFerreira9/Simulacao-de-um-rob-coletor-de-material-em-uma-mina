@@ -59,8 +59,18 @@ data Mine = Mine {
               elements :: [Line]
             } deriving (Eq, Ord)
 
+{-7-Inatncia de Show para o tipo Mine-}
 instance Show Mine where
-  show = undefined
+  show m = showElements (elements m)
+    where 
+      showElements [] = "\n"
+      showElements (l:ls) = (showLine l) ++ (showElements ls)
+         where 
+          showLine [] = "\n"
+          showLine (e:es) = (show e) ++ (showLine es)
+        
+showMineBreakLines :: Mine -> IO()
+showMineBreakLines m = putStrLn (show m) 
 
 
 {- 1 - instancia da classe Show para o tipo Robot-}
@@ -70,13 +80,13 @@ instance Show Robot where
 {- 2 - instancia de Show para o tipo Element-}
 instance Show Element where
     show elem = case elem of
-                           Empty -> show " "
+                           Empty -> show ' '
                            Entry -> show 'E'
                            Wall -> show '%'
                            Earth -> show '.'
                            Rock -> show '*'
                            Material q -> case q of
-                                                 100 -> show ':'
+                                                 100 ->  show ':'
                                                  150 -> show ';'
                                                  q -> show '$'
                            
@@ -91,14 +101,12 @@ contLineBorder (x:xs)
 
 contColumBorder :: [Line] -> Int
 contColumBorder [] = 0
-contColumBorder [_] = 0
-contColumBorder (x:y:[]) = 0
-contColumBorder (x:y:ys)
-                     |((y!!0) == Entry) && (y!!(tam-1) == Entry) = 2 + contColumBorder ys
-                     |((y!!0) == Entry) || (y!!(tam-1) == Entry) = 1 + contColumBorder ys
-                     |otherwise = contColumBorder ys
+contColumBorder (x:xs)
+                     |((x!!0) == Entry) && (x!!(tam-1) == Entry) = 2 + contColumBorder xs
+                     |((x!!0) == Entry) || (x!!(tam-1) == Entry) = 1 + contColumBorder xs
+                     |otherwise = contColumBorder xs
  where
-  tam = length y
+  tam = length (x:xs)
 
 verifyLengths :: Mine -> Bool
 verifyLengths m 
@@ -106,14 +114,42 @@ verifyLengths m
               |otherwise = False
 
 verifyEntrances :: Mine -> Bool
-verifyEntrances m = (contColumBorder (elements m) + contLineBorder ((elements m)!!0) + contLineBorder ((elements m)!!((length (elements m)) - 1))) >= 2
+verifyEntrances m = 
+                let 
+                    v = elements m
+                    n = length (elements m) 
+                    r1 = contColumBorder (drop 1 (take (n-1) v))
+                    r2 = contLineBorder (v!!0)
+                    r3 = contLineBorder (v!!(n - 1))
+                in 
+                   (r1 + r2 + r3) >= 2
+                       
                 
 validMine :: Mine -> Bool
 validMine m = (verifyLengths m) && (verifyEntrances m) 
 
 
 
-
+{-5-Valor do tipo Mine correspondente a LDM-}
+exampleMine :: Mine 
+exampleMine = Mine{
+  linhas = 15,columns = 15,
+  elements = [[Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall],
+              [Wall,Rock,Rock,Rock,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Wall],
+              [Wall,Rock,Rock,Rock,Earth,Earth,Earth,Empty,Earth,Earth,Earth,Rock,Earth,Earth,Wall],
+              [Wall,Rock,Rock,Rock,Earth,Earth,Earth,Empty,Earth,Earth,Rock,Rock,Rock,Earth,Wall],
+              [Wall,Earth,Material 50,Earth,Earth,Earth,Earth,Empty,Earth,Earth,Earth,Rock,Earth,Earth,Wall],
+              [Wall,Earth,Earth,Empty,Empty,Empty,Empty,Empty,Earth,Earth,Empty,Earth,Earth,Earth,Wall],
+              [Wall,Earth,Earth,Earth,Earth,Empty,Earth,Earth,Earth,Earth,Empty,Earth,Earth,Earth,Wall],
+              [Wall,Earth,Material 100,Earth,Earth,Empty,Earth,Earth,Earth,Earth,Empty,Earth,Earth,Earth,Wall],
+              [Wall,Earth,Earth,Empty,Earth,Empty,Empty,Empty,Empty,Empty,Empty,Empty,Earth,Earth,Wall],
+              [Wall,Earth,Earth,Rock,Earth,Empty,Earth,Earth,Empty,Earth,Earth,Earth,Earth,Earth,Wall],
+              [Wall,Earth,Earth,Earth,Earth,Empty ,Earth,Earth,Empty,Earth,Material 150,Material 150,Earth,Earth,Wall],
+              [Wall,Earth,Rock,Earth,Earth,Empty ,Earth,Earth,Earth,Material 150,Material 150,Earth,Earth,Rock,Wall],
+              [Wall,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Material 1,Wall],
+              [Wall,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Earth,Empty,Empty,Empty,Earth,Wall],
+              [Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Entry,Wall]]           
+}
 
 
 pLine :: Parser Char Line
