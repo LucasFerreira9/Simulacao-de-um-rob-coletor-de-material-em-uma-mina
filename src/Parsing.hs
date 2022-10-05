@@ -18,6 +18,7 @@ module Parsing  ( Parser(..)
                 , greedy1
                 , identifier
                 , listOf
+                , listOf1
                 , pack
                 , parenthesized
                 , endBy
@@ -123,6 +124,10 @@ identifier
 listOf :: Parser s a -> Parser s b -> Parser s [a]
 listOf p sep
    = (:) <$> p <*> many ((\ _ y -> y) <$> sep <*> p)
+
+listOf1 :: Parser s a -> Parser s b -> Parser s [a]
+listOf1 p sep
+   = (:) <$> p <*> greedy1 ((\ _ y -> y) <$> sep <*> p)
 
 pack :: Parser s a -> Parser s b ->
         Parser s c -> Parser s b

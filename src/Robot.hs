@@ -41,6 +41,7 @@ stringIntoElement "Empty" = Empty
 stringIntoElement "Entry" = Entry
 stringIntoElement "Wall" = Wall
 stringIntoElement "Rock" = Rock
+stringIntoElement "Earth" = Earth
 
 intIntoElement :: Int -> Element
 intIntoElement i = Material i
@@ -49,7 +50,7 @@ pElement :: Parser Char Element
 pElement = pElementNum <|> pElementText
     where 
       pElementNum = intIntoElement <$> natural1
-      pElementText = stringIntoElement <$> ((token "Empty") <|>  (token "Entry") <|> (token "Wall") <|>  (token "Rock"))                                                
+      pElementText = stringIntoElement <$> ((token "Empty") <|>  (token "Entry") <|> (token "Wall") <|>  (token "Rock") <|> (token "Earth"))                                                
 
 type Line = [Element]
 
@@ -151,12 +152,32 @@ exampleMine = Mine{
               [Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Wall,Entry,Wall]]           
 }
 
+{-6-Parser para o tipo Mine-}
 
 pLine :: Parser Char Line
-pLine = undefined
+pLine = greedy1 (charToElement <$> (symbol 'E' <|> symbol ' ' <|> symbol '%' <|> symbol '.' <|> symbol '*' <|> symbol ':' <|> symbol ';' <|> symbol '$'))
+    where
+        charToElement e = case e of
+            'E' -> Entry
+            ' ' -> Empty
+            '%' -> Wall
+            '.' -> Earth
+            '*' -> Rock
+            ':' -> Material 100
+            ';' -> Material 150
+            '$' -> Material 1
+
 
 pMine :: Parser Char Mine
-pMine = undefined
+pMine = Parser (\inp -> let r = runParser (elementsToMine <$> listOf1 pLine (symbol '\n')) inp in
+                          case r of
+                            []->[]
+                            ((a,_):_)->case validMine a of 
+                                    True -> r
+                                    False -> [])
+   where elementsToMine l = Mine{linhas = length l,columns = length (l!!0),elements = l}
+
+                                                   
 
 data Instr = L -- move para esquerda
            | R -- move para direita
@@ -166,11 +187,35 @@ data Instr = L -- move para esquerda
            | S -- para para recarga.
            deriving (Eq,Ord,Show,Enum)
 
+{-8-Parser para o tipo Instrução-}
 pInstr :: Parser Char Instr
-pInstr = undefined
+pInstr = charToInstr <$> ((symbol 'L') <|> (symbol 'R') <|>  (symbol 'U') <|> (symbol 'D') <|>  (symbol 'C') <|> (symbol 'S'))
+  where 
+    charToInstr c = case c of 
+      'L' -> L
+      'R' -> R
+      'U' -> U
+      'D' -> D 
+      'C' -> C
+      'S' -> S 
 
+{-Parser para um programa LCR-}
 pProgram :: Parser Char [Instr]
-pProgram = undefined
+pProgram = Parser (\inp -> let r = runParser (greedy1 pInstr) inp in
+                                case r of 
+                                  []->[]
+                                  ((a,_):_)->case validProgram a of
+                                                True -> r
+                                                False -> [])
+  where 
+    validProgram p 
+                |(isEntrance (head p)) && (isEntrance (p!!(length p - 1))) = True
+                |otherwise = False
+          where isEntrance i 
+                          |i == C || i == S = False
+                          |otherwise = True
+{-a função validProgram verifica se a primeira e ultima instrucao são de locomoção (entrar e sair da Mina)-}
+
 
 type Conf = (Robot, Mine)
 
