@@ -5,7 +5,7 @@ module Robot ( readLDM
 
 import Control.Monad.State
 import Parsing 
-
+import Data.Either
 
 type Fuel = Int
 type Point = (Int,Int)
@@ -94,41 +94,38 @@ instance Show Element where
 
 
 {-4-Função que valida uma Mina-}
-contLineBorder :: Line -> Int
-contLineBorder [] = 0
-contLineBorder (x:xs) 
-                    |x == Entry = 1 + contLineBorder xs
-                    |otherwise = contLineBorder xs
 
-contColumBorder :: [Line] -> Int
-contColumBorder [] = 0
-contColumBorder (x:xs)
-                     |((x!!0) == Entry) && (x!!(tam-1) == Entry) = 2 + contColumBorder xs
-                     |((x!!0) == Entry) || (x!!(tam-1) == Entry) = 1 + contColumBorder xs
-                     |otherwise = contColumBorder xs
- where
-  tam = length (x:xs)
+getEntrances :: Mine -> [Point] 
+getEntrances m = (getEntrancesVerticalLeft (elements m) 0) ++ (getEntrancesVerticalRight (elements m) 0) ++ (getEntrancesUp ((elements m)!!0) 0) ++ (getEntrancesDown ((elements m)!!((linhas m)-1)) 0 (columns m))
+  where
+    getEntrancesVerticalLeft [] _ = []
+    getEntrancesVerticalLeft (l:ls) n 
+                           |l!!0 == Entry = (n,0) : (getEntrancesVerticalLeft ls) (n+1)
+                           |otherwise = (getEntrancesVerticalLeft ls) (n+1)
+    getEntrancesVerticalRight [] _ = []
+    getEntrancesVerticalRight (l:ls) n
+                          |l!!(tam-1) == Entry = (n,tam-1) : (getEntrancesVerticalRight ls) (n+1)
+                          |otherwise = (getEntrancesVerticalRight ls) (n+1)
+                              where tam = length l
+    getEntrancesUp [] _ = []                                                    
+    getEntrancesUp (l:ls) n
+                          |l==Entry = (0,n) : (getEntrancesUp ls (n+1))
+                          |otherwise = getEntrancesUp ls (n+1)   
+    getEntrancesDown [] _ _ = []                                                    
+    getEntrancesDown (l:ls) n tam
+                          |l==Entry = (tam-1,n) : (getEntrancesDown ls (n+1) tam)
+                          |otherwise = getEntrancesDown ls (n+1) tam   
 
-verifyLengths :: Mine -> Bool
-verifyLengths m 
-              |(linhas m == (length (elements m))) && (columns m == length (elements m!!0)) = True
-              |otherwise = False
-
-verifyEntrances :: Mine -> Bool
-verifyEntrances m = 
-                let 
-                    v = elements m
-                    n = length (elements m) 
-                    r1 = contColumBorder (drop 1 (take (n-1) v))
-                    r2 = contLineBorder (v!!0)
-                    r3 = contLineBorder (v!!(n - 1))
-                in 
-                   (r1 + r2 + r3) >= 2
-                       
-                
+verifyLength::Mine -> Bool
+verifyLength m = let
+                    elems = elements m
+                    l = linhas m
+                    c = columns m
+                  in
+                    l == (length elems) && c == (length (head elems))
+             
 validMine :: Mine -> Bool
-validMine m = (verifyLengths m) && (verifyEntrances m) 
-
+validMine m = (verifyLength m) && ((length (getEntrances m)) > 0)
 
 
 {-5-Valor do tipo Mine correspondente a LDM-}
@@ -221,37 +218,174 @@ type Conf = (Robot, Mine)
 
 type ConfM a = State Conf a
 
-
-current :: ConfM Point
-current = undefined
+{-10-}
+current :: ConfM Point {-State (Robot,Mine) Point-}
+current = state (\(r,m)->(position r,(r,m)))
+            
 
 mine :: ConfM Mine
-mine = undefined
+mine = state (\(r,m)->(m,(r,m)))
+
 
 enoughEnergy :: Int -> ConfM Bool
-enoughEnergy = undefined
+enoughEnergy v = isMore <$> state (\(r,m)->(energy r,(r,m)))
+  where 
+    isMore r = r > v
 
 incEnergy :: ConfM ()
-incEnergy = undefined
+incEnergy = do
+              (r,m) <- get
+              put (r{energy = (energy r) + 1},m)
+              return ()
+
+{-11-}
+
+validEnergy ::(Robot,Mine) -> Int -> Bool
+validEnergy (r,b) v = fst (runState (enoughEnergy v) (r,b)) 
+                      
+
+validMove :: Instr -> (Robot,Mine) -> Bool
+validMove i (r,b) = let 
+                       mina = fst(runState mine (r,b))
+                       (x,y) = fst (runState current (r,b)) 
+                       e = validEnergy (r,b) 1
+                    in 
+                      if(i==L) then not(validArea mina (x,y-1) [Wall] && e)
+                      else if(i==R) then not (validArea mina (x,y+1) [Wall] && e)
+                      else if (i==U) then not (validArea mina (x-1,y) [Wall] && e)
+                      else not (validArea mina (x+1,y) [Wall] && e)
+                        
+
+validArea :: Mine -> Point -> [Element] -> Bool
+validArea _ _ [] = False 
+validArea m (x,y) (e:es) = (posit == e) || validArea m (x,y) es
+             where posit =  ((elements m)!!x)!!y      
+
+             
+
+validCollect :: (Robot,Mine) -> Bool
+validCollect (r,m) = let 
+                        (x,y) = position r
+                        materials = [Material 100,Material 150,Material 50,Material 1]
+                      in
+                        (validEnergy (r,m) 10) && ( 
+                        (validArea m (x+1,y) materials) ||
+                        (validArea m (x-1,y) materials) ||
+                        (validArea m (x,y+1) materials) ||
+                        (validArea m (x,y-1) materials) )
+    
 
 valid :: Instr -> ConfM Bool
-valid = undefined
-
+valid C = state (\(r,m) -> (validCollect (r,m),(r,m)))
+valid S = state (\(r,m) -> (True,(r,m)))
+valid anothers = state (\(r,m) -> (validMove anothers (r,m),(r,m)))
+                                        
+{-12-}
 
 updateMine :: Instr -> ConfM ()
-updateMine = undefined
+updateMine i = do
+                n <- get
+                case fst(runState (valid i) n) of 
+                  False -> incEnergy
+                  True -> changeState i
+                            
+                           
+changeState :: Instr -> ConfM ()
+changeState i = case i of
+                    S -> incEnergy
+                    C -> do
+                          (r,m) <- get
+                          put ((r{energy = (energy r)-10,position = position r,collected = (collected r) + 1},removeMaterial m (position r) ))
+                          return ()
+                    U -> do
+                          (r,m) <- get
+                          put ((r {energy = (energy r)-1,position = incPosition U (position r),collected = (collected r)},m))
+                          return ()
+                    D -> do
+                          (r,m) <- get
+                          put ((r {energy = (energy r)-1,position = incPosition D (position r),collected = (collected r)},m))
+                          return ()
+                    L -> do
+                          (r,m) <- get
+                          put ((r {energy = (energy r)-1,position = incPosition L (position r),collected = (collected r)},m))
+                          return ()
+                    R -> do
+                          (r,m) <- get
+                          put ((r {energy = (energy r)-1,position = incPosition R (position r),collected = (collected r)},m))
+                          return ()
+
+
+incPosition:: Instr -> Point -> Point
+incPosition i (x,y) = case i of
+                      U -> (x-1,y)
+                      D -> (x+1,y)
+                      L -> (x,y-1)
+                      R -> (x,y+1)
+
+
+removeMaterial :: Mine -> Point -> Mine
+removeMaterial m (x,y) 
+                        | elem (((elements m)!!(x-1))!!y) materials = setEmpty m (x-1,y)
+                        | elem (((elements m)!!(x+1))!!y) materials = setEmpty m  (x+1,y)
+                        | elem (((elements m)!!(x))!!(y+1)) materials = setEmpty m (x,y+1) 
+                        |otherwise = setEmpty m (x,y-1)
+                        
+                             where
+                                materials = [Material 1,Material 50,Material 100,Material 150]
+                              
+setEmpty::Mine->Point->Mine
+setEmpty mine (x,y) = let 
+                      m = elements mine
+                      (c,_:cs)= splitAt y (m!!x) 
+                      (l,_:ls) = splitAt x m  
+                      newLine = c++Empty:cs
+                    in
+                      Mine{linhas= (linhas mine) ,columns = (columns mine),elements = (l++newLine:ls) } 
+
+{-13-}
 
 exec :: Instr -> ConfM ()
-exec = undefined
+exec i = do
+           n <- get 
+           r <- updateMine i
+           return ()
 
+{-14-}
 initRobot :: Mine -> Robot
-initRobot = undefined
+initRobot m 
+          |not (validMine m) = error "Mina invalida"
+          |otherwise = Robot{energy = 100,position = head (getEntrances m),collected = 0}
+              
+                
+{-15-}     
+                               
 
 run :: [Instr] -> Mine -> Mine
-run = undefined
+run [] m = m
+run (i:is) m = snd (snd (runState (make (i:is)) (initRobot m,m)))
+
+make :: [Instr] -> ConfM ()
+make [] = state (\(r,m)->((),(r,m)))
+make (i:is) = do
+                s <- get
+                v <- exec i
+                make is 
+                return ()
+                           
+                              
+{-16-}                                   
 
 readLDM :: String -> IO (Either String Mine)
-readLDM = undefined
+readLDM name = do
+                n <- readFile ("app/" ++ name)
+                case (runParser pMine n) of
+                  [] -> return (Left "Parser error on input of the mine!")
+                  ((a,_):_) -> return (Right a)
 
+{-17-}
 readLCR :: String -> IO (Either String [Instr])
-readLCR = undefined
+readLCR name = do
+                n <- readFile ("app/" ++ name)
+                case (runParser pProgram n) of 
+                  [] -> return (Left "Parser error on input of the program")
+                  ((a,_):_) -> return (Right a)
