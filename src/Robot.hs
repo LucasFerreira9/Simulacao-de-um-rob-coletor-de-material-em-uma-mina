@@ -6,6 +6,7 @@ module Robot ( readLDM
 import Control.Monad.State
 import Parsing 
 import Data.Either
+import System.IO 
 
 type Fuel = Int
 type Point = (Int,Int)
@@ -87,6 +88,7 @@ instance Show Element where
                            Earth -> show '.'
                            Rock -> show '*'
                            Material q -> case q of
+                                                 50 -> show '?'
                                                  100 ->  show ':'
                                                  150 -> show ';'
                                                  q -> show '$'
@@ -152,7 +154,7 @@ exampleMine = Mine{
 {-6-Parser para o tipo Mine-}
 
 pLine :: Parser Char Line
-pLine = greedy1 (charToElement <$> (symbol 'E' <|> symbol ' ' <|> symbol '%' <|> symbol '.' <|> symbol '*' <|> symbol ':' <|> symbol ';' <|> symbol '$'))
+pLine = greedy1 (charToElement <$> (symbol 'E' <|> symbol ' ' <|> symbol '%' <|> symbol '.' <|> symbol '*' <|> symbol ':' <|> symbol ';' <|> symbol '$' <|> symbol '?'))
     where
         charToElement e = case e of
             'E' -> Entry
@@ -160,21 +162,17 @@ pLine = greedy1 (charToElement <$> (symbol 'E' <|> symbol ' ' <|> symbol '%' <|>
             '%' -> Wall
             '.' -> Earth
             '*' -> Rock
+            '?' -> Material 50
             ':' -> Material 100
             ';' -> Material 150
             '$' -> Material 1
 
 
 pMine :: Parser Char Mine
-pMine = Parser (\inp -> let r = runParser (elementsToMine <$> listOf1 pLine (symbol '\n')) inp in
-                          case r of
-                            []->[]
-                            ((a,_):_)->case validMine a of 
-                                    True -> r
-                                    False -> [])
-   where elementsToMine l = Mine{linhas = length l,columns = length (l!!0),elements = l}
+pMine = elementsToMine <$> listOf1 pLine (symbol '\n')
+  where elementsToMine l = Mine{linhas = length l,columns = length (l!!0),elements = l}
 
-                                                   
+                                                  
 
 data Instr = L -- move para esquerda
            | R -- move para direita
@@ -377,7 +375,8 @@ make (i:is) = do
 
 readLDM :: String -> IO (Either String Mine)
 readLDM name = do
-                n <- readFile ("app/" ++ name)
+                file <- openFile ("app/"++name) ReadMode
+                n <- hGetContents file
                 case (runParser pMine n) of
                   [] -> return (Left "Parser error on input of the mine!")
                   ((a,_):_) -> return (Right a)
@@ -385,7 +384,10 @@ readLDM name = do
 {-17-}
 readLCR :: String -> IO (Either String [Instr])
 readLCR name = do
-                n <- readFile ("app/" ++ name)
+                file <- openFile ("app/"++name) ReadMode
+                n <- hGetContents file
                 case (runParser pProgram n) of 
                   [] -> return (Left "Parser error on input of the program")
                   ((a,_):_) -> return (Right a)
+
+              

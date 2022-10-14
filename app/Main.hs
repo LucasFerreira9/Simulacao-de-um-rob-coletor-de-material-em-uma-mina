@@ -1,5 +1,5 @@
 module Main (main) where
-
+ 
 import Robot
 import System.Environment (getArgs)
 
@@ -8,6 +8,7 @@ main :: IO ()
 main = do
           args <- getArgs
           doIt args
+          
 
 doIt :: [String] -> IO ()
 doIt [fm , fr]
